@@ -1,18 +1,17 @@
 package com.bancothink.controllers;
 
 import com.bancothink.clases.*;
-import com.bancothink.interfaces.ICredito;
-import com.bancothink.interfaces.ICuenta;
-import com.bancothink.interfaces.IFabricaBancaria;
+import com.bancothink.interfaces.*;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 public class GestorSolicitudes {
+
+    BaseDatos baseDatos = BaseDatos.getInstancia();
 
     public void listarSolicitudes() throws IOException {
         BaseDatos baseDatos = BaseDatos.getInstancia();
@@ -20,11 +19,11 @@ public class GestorSolicitudes {
         System.out.println("Listado de solicitudes");
         boolean haySolicitudes = false;
         for (Cliente cliente:clientes) {
-            List<Solicitud> solicitudes = cliente.getSolicitudes();
+            List<ISolicitud> solicitudes = cliente.getSolicitudes();
             if(solicitudes != null) {
                 System.out.println("------------------------------------");
                 System.out.println("N° Cliente " + cliente.getId() + " - " + cliente.getNombre() + " " + cliente.getApellidoPaterno());
-                for(Solicitud solicitud:solicitudes) {
+                for(ISolicitud solicitud:solicitudes) {
                     System.out.println("N° Solicitud " + solicitud.getId() + " Solicitud de " + solicitud.getTipoSolicitud()  + " - Estado: " + solicitud.isAprobado() );
                 }
                 System.out.println("------------------------------------");
@@ -66,8 +65,8 @@ public class GestorSolicitudes {
         List<Cliente> clientes = baseDatos.getClientes();
         for (Cliente cliente:clientes) {
             if (idCliente == cliente.getId()) {
-                List<Solicitud> solicitudes = cliente.getSolicitudes();
-                for (Solicitud solicitud:solicitudes) {
+                List<ISolicitud> solicitudes = cliente.getSolicitudes();
+                for (ISolicitud solicitud:solicitudes) {
                     if(idSolicitud == solicitud.getId()) {
                         System.out.println("Solicitud " + solicitud.getId());
                         System.out.println("Fecha solicitud: " + solicitud.getFechaSolicitud().toString());
@@ -80,11 +79,16 @@ public class GestorSolicitudes {
                             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
                             String option = reader.readLine();
                             if(option.toLowerCase().equals("y")) {
-                                solicitud.setAprobado(true);
-                                System.out.println("Se ha aprobado la solicitud");
+                                solicitud.setEstado("Aprobado");
+                                String mensaje = "Se ha aprobado la solicitud de "+ solicitud.getTipoSolicitud() +" N°" + solicitud.getId() + " a nombre del cliente " + cliente.getNombre() + ".";
+                                System.out.println(mensaje);
+                                solicitud.getNotificacion().notificarObservadores(mensaje);
                                 listo = true;
                             } else if(option.toLowerCase().equals("n")) {
-                                System.out.println("No se ha aprobado la solicitud");
+                                solicitud.setEstado("Rechazado");
+                                String mensaje = "Se ha rechazado la solicitud de "+ solicitud.getTipoSolicitud() +" N°" + solicitud.getId() + " a nombre del cliente " + cliente.getNombre() + ".";
+                                System.out.println(mensaje);
+                                solicitud.getNotificacion().notificarObservadores(mensaje);
                                 listo = true;
                             } else {
                                 System.out.println("Valor ingresado: " + option + " no es valido.");
@@ -100,23 +104,47 @@ public class GestorSolicitudes {
 
     public Cliente crearSolicitudCredito(Cliente cliente, Ejecutivo ejecutivo) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-        System.out.println("¿Cual es el monto del crédito?");
-        Double monto = Double.parseDouble(reader.readLine());
 
-        System.out.println("¿Total de cuotas del crédito?");
-        long cuotas = Long.parseLong(reader.readLine());
+        double creditosActuales = cliente.getMontoCreditos();
+        double sueldoCliente = cliente.getSueldo();
+        double maximoDisponible = sueldoCliente * 1.5;
+        double cupo = maximoDisponible - creditosActuales;
+        if(cupo > 0) {
+            System.out.println("¿Cual es el monto del crédito? Cupo disponible: $"+ cupo);
+            double monto = Double.parseDouble(reader.readLine());
 
-        System.out.println("¿Tipo de crédito? \nCréditos disponibles: \n- Hipotecario \n- Automotriz \n- Consumo");
-        String tipoCredito = reader.readLine();
+            if(monto <=cupo) {
+                System.out.println("¿Total de cuotas del crédito?");
+                long cuotas = Long.parseLong(reader.readLine());
 
-        List<Solicitud> solicitudes = cliente.getSolicitudes();
-        if(solicitudes == null) solicitudes = new ArrayList<>();
-        IFabricaBancaria fabricaCreditos = ProveedorFabrica.getFabrica("creditos");
-        ICredito credito = fabricaCreditos.getCredito(tipoCredito, monto, cuotas);
-        Solicitud nuevaSolicitud = new Solicitud(solicitudes.size(), false, new Date(), credito, cliente, ejecutivo, "Crédito");
-        solicitudes.add(nuevaSolicitud);
-        cliente.setSolicitudes(solicitudes);
-        System.out.println("Se ha generado la solicitud de crédito n°" + nuevaSolicitud.getId() + " por el monto de " + credito.getMonto() + " con " + credito.getCuotas() + " cuotas.");
+                System.out.println("¿Tipo de crédito? \nCréditos disponibles: \n- Hipotecario \n- Automotriz \n- Consumo");
+                String tipoCredito = reader.readLine();
+                IFabricaBancaria fabricaCreditos = ProveedorFabrica.getFabrica("creditos");
+                ICredito credito = fabricaCreditos.getCredito(tipoCredito, monto, cuotas);
+                long id = baseDatos.getTotalSolicitudes() + 1;
+
+                Solicitud nuevaSolicitud = new Solicitud(id, new Date(), credito, cliente, ejecutivo, "Crédito");
+
+                Notificacion notificacion = new Notificacion();
+                notificacion.agregarObservador(cliente);
+                notificacion.agregarObservador(ejecutivo);
+                Supervisor supervisor = baseDatos.getSupervisor();
+                notificacion.agregarObservador(supervisor);
+
+                nuevaSolicitud.setNotificacion(notificacion);
+                cliente.agregarSolicitud(nuevaSolicitud);
+                String mensaje = "Se ha generado la solicitud de crédito n°" + nuevaSolicitud.getId() + " por el monto de " + credito.getMonto() + " con " + credito.getCuotas() + " cuotas\na nombre del cliente "+ cliente.getNombre() +".";
+                notificacion.notificarObservadores(mensaje);
+                System.out.println(mensaje);
+                baseDatos.setTotalSolicitudes(id);
+
+            } else {
+                System.out.println("Monto ingresado $"+ monto +" supera el cupo disponible de $"+cupo);
+                crearSolicitudCredito(cliente, ejecutivo);
+            }
+        } else {
+            System.out.println("El cliente " + cliente.getNombre() + " no posee cupo para una nueva solicitud de crédito.");
+        }
         return cliente;
     }
 
@@ -129,20 +157,27 @@ public class GestorSolicitudes {
         String option = reader.readLine();
         boolean tarjeta = false;
         if("y".equals(option.toLowerCase())) tarjeta = true;
-
-        List<Solicitud> solicitudes = cliente.getSolicitudes();
-        if(solicitudes == null) solicitudes = new ArrayList<>();
         IFabricaBancaria fabricaCuentas = ProveedorFabrica.getFabrica("cuentas");
         ICuenta cuenta = fabricaCuentas.getCuenta(tipoCuenta, tarjeta);
-        Solicitud nuevaSolicitud = new Solicitud(solicitudes.size(), false, new Date(), cuenta, cliente, ejecutivo, "Cuenta");
-        solicitudes.add(nuevaSolicitud);
-        cliente.setSolicitudes(solicitudes);
-        System.out.println("Se ha generado la solicitud de apertura de cuenta n°" + nuevaSolicitud.getId() + " de tipo " + cuenta.getTipoCuenta());
+        long id = baseDatos.getTotalSolicitudes() + 1;
+
+        Solicitud nuevaSolicitud = new Solicitud(id, new Date(), cuenta, cliente, ejecutivo, "Cuenta");
+        Notificacion notificacion = new Notificacion();
+        notificacion.agregarObservador(cliente);
+        notificacion.agregarObservador(ejecutivo);
+        Supervisor supervisor = baseDatos.getSupervisor();
+        notificacion.agregarObservador(supervisor);
+        nuevaSolicitud.setNotificacion(notificacion);
+        cliente.agregarSolicitud(nuevaSolicitud);
+        String mensaje = "Se ha generado la solicitud de apertura de cuenta n°" + nuevaSolicitud.getId() + " de tipo " + cuenta.getTipoCuenta()+"\na nombre del cliente "+ cliente.getNombre() +".";
+        notificacion.notificarObservadores(mensaje);
+        System.out.println(mensaje);
         if (tarjeta) {
             System.out.println("Se incluye tarjeta asociada a la cuenta");
         } else {
             System.out.println("No se incluye tarjeta asociada a la cuenta");
         }
+        baseDatos.setTotalSolicitudes(id);
         return cliente;
     }
 

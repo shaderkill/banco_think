@@ -16,11 +16,11 @@ public class App {
 	// write your code here
         BaseDatos baseDatos = BaseDatos.getInstancia();
         List<Cliente> clientes = baseDatos.getClientes();
-        Cliente cliente = new Cliente(0, "Cristian", "Molina", "Seguel", "1-9","99999999","Calle falsa 123", "Calle falsa 123");
+        Cliente cliente = new Cliente(0, "Cristian", "Molina", "Seguel", "1-9","99999999","Calle falsa 123", "Calle falsa 123", 700000);
         clientes.add(cliente);
-        cliente = new Cliente(1, "Victor", "Hugo", "Hugo", "1-9","99999999","Calle falsa 123", "Calle falsa 123");
+        cliente = new Cliente(1, "Victor", "Hugo", "Hugo", "1-9","99999999","Calle falsa 123", "Calle falsa 123",1000000);
         clientes.add(cliente);
-        cliente = new Cliente(2, "Felipe", "Soto", "Soto", "1-9","99999999","Calle falsa 123", "Calle falsa 123");
+        cliente = new Cliente(2, "Felipe", "Soto", "Soto", "1-9","99999999","Calle falsa 123", "Calle falsa 123",350000);
         clientes.add(cliente);
         menu();
     }
@@ -31,15 +31,21 @@ public class App {
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
         String option = reader.readLine();
         if(option.toLowerCase().equals("ejecutivo")) {
-            menuEjecutivo(new Ejecutivo());
+            BaseDatos baseDatos = BaseDatos.getInstancia();
+            Ejecutivo ejecutivo = baseDatos.getEjecutivo();
+            menuEjecutivo(ejecutivo);
         } else if (option.toLowerCase().equals("supervisor")) {
-            menuSupervisor(new Supervisor());
+            BaseDatos baseDatos = BaseDatos.getInstancia();
+            Supervisor supervisor = baseDatos.getSupervisor();
+            menuSupervisor(supervisor);
         }
     }
 
     public static void menuEjecutivo(Ejecutivo ejecutivo) throws IOException {
         boolean inMenu = true;
         while(inMenu) {
+            BaseDatos baseDatos = BaseDatos.getInstancia();
+            ejecutivo = baseDatos.getEjecutivo();
             ejecutivo.desplegarMenu();
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
             String option = reader.readLine();
@@ -49,8 +55,12 @@ public class App {
                     break;
                 case "2":
                     ejecutivo.crearCliente();
+
                     break;
                 case "3":
+                    ejecutivo.leerNotificaciones();
+                    break;
+                case "4":
                     inMenu = false;
                     break;
                 default:
@@ -65,6 +75,8 @@ public class App {
     public static void menuSupervisor(Supervisor supervisor) throws IOException {
         boolean inMenu = true;
         while(inMenu) {
+            BaseDatos baseDatos = BaseDatos.getInstancia();
+            supervisor = baseDatos.getSupervisor();
             supervisor.desplegarMenu();
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
             String option = reader.readLine();
@@ -73,6 +85,9 @@ public class App {
                     supervisor.verSolicitudes();
                     break;
                 case "2":
+                    supervisor.leerNotificaciones();
+                    break;
+                case "3":
                     inMenu = false;
                     break;
                 default:
