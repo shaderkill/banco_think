@@ -8,6 +8,7 @@ import com.bancothink.clases.Solicitud;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.text.ParseException;
 import java.util.List;
 
 public class GestorClientes {
@@ -75,9 +76,11 @@ public class GestorClientes {
         String direccionParticular = reader.readLine();
         System.out.println("Dirección laboral del cliente: ");
         String direccionLaboral = reader.readLine();
+        System.out.println("Sueldo del cliente: ");
+        double sueldo = Double.parseDouble(reader.readLine());
         BaseDatos baseDatos = BaseDatos.getInstancia();
         List<Cliente> clientes = baseDatos.getClientes();
-        Cliente nuevoCliente = new Cliente(clientes.size(), nombre,apellidoPaterno,apellidoMaterno,rut,telefono,direccionParticular,direccionLaboral);
+        Cliente nuevoCliente = new Cliente(clientes.size(), nombre,apellidoPaterno,apellidoMaterno,rut,telefono,direccionParticular,direccionLaboral,sueldo);
         clientes.add(nuevoCliente);
         System.out.println("Cliente " + nuevoCliente.getNombre() + " ha sido registrado.");
         baseDatos.setClientes(clientes);
